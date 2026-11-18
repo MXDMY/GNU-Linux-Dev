@@ -1,9 +1,9 @@
 
 /*
  * m 模块（m.h）接口测试。
- * 覆盖 m_malloc / m_free / m_strstr / m_strcmp / m_strncmp 的正常路径、边界
- * 条件与错误路径。字符串比较接口只断言返回值符号（< 0 / 0 / > 0），不绑定
- * 具体差值，与 strcmp 系列的约定保持一致。
+ * 覆盖 m_malloc / m_free / m_strstr / m_strcmp / m_strncmp / m_strtok_r 的正常
+ * 路径、边界条件与错误路径。字符串比较接口只断言返回值符号（< 0 / 0 / > 0），
+ * 不绑定具体差值，与 strcmp 系列的约定保持一致。
  *
  * 注意：本文件所属的可执行目标同时链接 m 与 mhttp，当前只测 m；mhttp 实现
  * 后可继续在本文件追加其接口测试。
@@ -447,6 +447,126 @@ static void test_m_strncmp(void)
     }
 }
 
+/*
+ * 测试 m_strtok_r：与 POSIX strtok_r 语义对齐。
+ * 覆盖前导/连续/尾部分隔符、多字符分隔符集合、调用间更换 delim、空串、
+ * 空分隔符集合、save_ptr 续接与异常入参；不依赖 libc 的 strtok_r。
+*/
+static void test_m_strtok_r(void)
+{
+    // 基本切分：token 内容、save_ptr 位置、分隔符被就地替换为 '\0'
+    {
+        char s[] = "a,b,c";
+        char* save = NULL;
+
+        char* t = m_strtok_r(s, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "a"));
+        CHECK(s + 2 == save);
+
+        t = m_strtok_r(NULL, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "b"));
+        CHECK(s + 4 == save);
+
+        t = m_strtok_r(NULL, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "c"));
+        CHECK(s + 5 == save);
+
+        t = m_strtok_r(NULL, ",", &save);
+        CHECK(NULL == t);
+        CHECK(s + 5 == save);
+    }
+
+    // 前导、连续、尾部分隔符不产生空 token
+    {
+        char s[] = ",,a,,b,";
+        char* save = NULL;
+
+        char* t = m_strtok_r(s, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "a"));
+        CHECK(s + 4 == save);
+
+        t = m_strtok_r(NULL, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "b"));
+        CHECK(s + 7 == save);
+
+        CHECK(NULL == m_strtok_r(NULL, ",", &save));
+    }
+
+    // 只有分隔符：一次就返回 NULL，save_ptr 指向串尾
+    {
+        char s[] = ",,,";
+        char* save = NULL;
+
+        CHECK(NULL == m_strtok_r(s, ",", &save));
+        CHECK(s + 3 == save);
+    }
+
+    // 空串：返回 NULL，save_ptr 仍指向串首 '\0'
+    {
+        char s[] = "";
+        char* save = NULL;
+
+        CHECK(NULL == m_strtok_r(s, ",", &save));
+        CHECK(s == save);
+    }
+
+    // 多分隔符集合，且允许调用间更换 delim
+    {
+        char s[] = "a;b,c";
+        char* save = NULL;
+
+        char* t = m_strtok_r(s, ";", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "a"));
+
+        t = m_strtok_r(NULL, ",", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "b"));
+
+        t = m_strtok_r(NULL, ";,", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "c"));
+
+        CHECK(NULL == m_strtok_r(NULL, ";,", &save));
+    }
+
+    // 空分隔符集合：整个字符串作为唯一 token
+    {
+        char s[] = "abc";
+        char* save = NULL;
+
+        char* t = m_strtok_r(s, "", &save);
+        CHECK(NULL != t);
+        if (t)
+            CHECK(0 == strcmp(t, "abc"));
+        CHECK(s + 3 == save);
+        CHECK(NULL == m_strtok_r(NULL, "", &save));
+    }
+
+    // 异常入参：POSIX 未定义，本实现统一返回 NULL
+    {
+        char s[] = "a,b";
+        char* save = NULL;
+
+        CHECK(NULL == m_strtok_r(s, ",", NULL));
+        CHECK(NULL == m_strtok_r(s, NULL, &save));
+        CHECK(NULL == m_strtok_r(NULL, ",", &save));
+    }
+}
+
 int main(int argc, char* argv[])
 {
     (void)argc;
@@ -456,6 +576,7 @@ int main(int argc, char* argv[])
     test_m_strstr();
     test_m_strcmp();
     test_m_strncmp();
+    test_m_strtok_r();
 
     printf("mhttp_test/m: %d passed, %d failed\n", g_passed, g_failed);
 

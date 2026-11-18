@@ -65,15 +65,9 @@ static void build_next(const char* p, int m, int* next, int cs)
  * 文本指针 i 从不回退
 */
 
-char* m_strstr(const char* s, const char* p, int cs)
+static char* m_kmp(const char* s, int n, const char* p, int m, int cs)
 {
-    if (! s || ! p)
-        return NULL;
-
-    int n = (int)strlen(s);
-    int m = (int)strlen(p);
-
-    if (0 == n || 0 == m)
+    if (! s || ! p || n <=0 || m <= 0)
         return NULL;
 
     int* next = (int*)m_malloc(sizeof(int) * m);
@@ -92,7 +86,7 @@ char* m_strstr(const char* s, const char* p, int cs)
             if (j == m)
             {
                 m_free(next);
-                return s + i - m;
+                return (char*)s + i - m;
             }
         }
         else
@@ -106,6 +100,20 @@ char* m_strstr(const char* s, const char* p, int cs)
 
     m_free(next);
     return NULL;
+}
+
+char* m_strstr(const char* haystack, const char* needle, int cs)
+{
+    if (! haystack || ! needle)
+        return NULL;
+
+    return m_kmp(haystack, (int)strlen(haystack), needle, (int)strlen(needle), cs);
+}
+
+void* m_memmem(const void* haystack, unsigned long haystacklen, const void* needle
+                    , unsigned long needlelen, int cs)
+{
+    return m_kmp((const char*)haystack, (int)haystacklen, (const char*)needle, (int)needlelen, cs);
 }
 
 int m_strcmp(const char* s1, const char* s2, int cs)
@@ -142,7 +150,7 @@ int m_strncmp(const char* s1, const char* s2, unsigned long n, int cs)
     if (! s1 && s2)
         return -1;
 
-    int i = 0;
+    unsigned long i = 0;
     while ('\0' != s1[i] && '\0' != s2[i] && i < n - 1)
     {
         int r = cs ? s1[i] - s2[i] : tolower((uint8_t)s1[i]) - tolower((uint8_t)s2[i]);
@@ -156,4 +164,131 @@ int m_strncmp(const char* s1, const char* s2, unsigned long n, int cs)
     }
 
     return cs ? s1[i] - s2[i] : tolower((uint8_t)s1[i]) - tolower((uint8_t)s2[i]);
+}
+
+char* m_strdup(const char* s)
+{
+    if (! s)
+        return NULL;
+
+    size_t size = strlen(s) + 1;
+
+    char* dup = (char*)m_malloc(size);
+    if (! dup)
+        return NULL;
+    strcpy(dup, s);
+    return dup;
+}
+
+char* m_strndup(const char* string, unsigned long n)
+{
+    if (! string)
+        return NULL;
+
+    size_t size = strlen(string);
+    if (size > n)
+        size = n;
+    size++;
+
+    char* dup = (char*)m_malloc(size);
+    if (! dup)
+        return NULL;
+    if (! memcpy(dup, string, size))
+    {
+        m_free(dup);
+        return NULL;
+    }
+    dup[size - 1] = '\0';
+    return dup;
+}
+
+unsigned long m_strnlen(const char* s, unsigned long maxlen)
+{
+    if (! s)
+        return 0;
+
+    unsigned long slen = (unsigned long)strlen(s);
+    return slen > maxlen ? maxlen : slen;
+}
+
+char* m_strtok_r(char* s, const char* delim, char** save_ptr)
+{
+    if (! save_ptr || ! delim)
+        return NULL;
+
+    if (! s)
+        s = *save_ptr;
+    if (! s)
+        return NULL;
+
+    // 跳过前导分隔符
+    s += strspn(s, delim);
+
+    // 已到串尾，没有更多 token
+    if ('\0' == *s)
+    {
+        *save_ptr = s;
+        return NULL;
+    }
+
+    // 找 token 末尾的第一个分隔符
+    char* end = s + strcspn(s, delim);
+    if ('\0' == *end)
+        *save_ptr = end;
+    else
+    {
+        *end = '\0';
+        *save_ptr = end + 1;
+    }
+
+    return s;
+}
+
+char* m_trim(const char* s, const char* cset, int pos)
+{
+    if (! s || ! cset)
+        return NULL;
+
+    // 查表法
+    int inset[256] = {0};
+    for (int i = 0; cset[i] != '\0'; i++)
+        inset[(uint8_t)cset[i]] = 1;
+    
+    int slen = (int)strlen(s);
+    int headlen = 0;
+    int taillen = 0;
+    for (int i = 0; i < slen && inset[(uint8_t)s[i]]; i++)
+        headlen++;
+    for (int i = slen - 1; i >= 0 && inset[(uint8_t)s[i]]; i--)
+        taillen++;
+
+    int tsize = 1;
+    const char* cp_addr = s;
+    switch (pos)
+    {
+    case 0:
+        tsize += slen - headlen;
+        cp_addr += headlen;
+        break;
+    case 1:
+        tsize += slen - taillen;
+        break;
+    default:
+        if (headlen + taillen >= slen)
+            cp_addr = "";
+        else
+        {
+            tsize += slen - headlen - taillen;
+            cp_addr += headlen;
+        }
+        break;
+    }
+
+    char* t = (char*)m_malloc((unsigned long)tsize);
+    if (! t)
+        return NULL;
+    
+    memcpy(t, cp_addr, tsize);
+    t[tsize - 1] = '\0';
+    return t;
 }
