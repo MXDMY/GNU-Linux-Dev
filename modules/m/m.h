@@ -46,17 +46,18 @@ extern unsigned long m_strnlen(const char* s, unsigned long maxlen);
 extern char* m_strtok_r(char* s, const char* delim, char** save_ptr);
 
 /*
- * 去除头部、尾部指定连续字符，示例：
+ * 在指定长度内，去除头部、尾部指定连续字符，示例：
  * ```c
  * char* s = " \n1hello, world\t\r";
- * char* sub = m_trim(s, " \n1\t\r", 2); // "hello, world"
+ * char* sub = m_trim(s, 8, " \n1\t\r", 2); // "hello"
  * ```
  * @param s     待去除字符串
+ * @param len   指定长度，不应大于 s 字符串长度
  * @param cset  要去除的字符合集
  * @param pos   0 首部；1 尾部；2 首尾
  * @return      去除后的字符串，m_malloc 分配
 */
-extern char* m_trim(const char* s, const char* cset, int pos);
+extern char* m_trim(const char* s, int len, const char* cset, int pos);
 
 #ifdef __cplusplus
 }

@@ -193,11 +193,7 @@ char* m_strndup(const char* string, unsigned long n)
     char* dup = (char*)m_malloc(size);
     if (! dup)
         return NULL;
-    if (! memcpy(dup, string, size))
-    {
-        m_free(dup);
-        return NULL;
-    }
+    memcpy(dup, string, size);
     dup[size - 1] = '\0';
     return dup;
 }
@@ -207,8 +203,10 @@ unsigned long m_strnlen(const char* s, unsigned long maxlen)
     if (! s)
         return 0;
 
-    unsigned long slen = (unsigned long)strlen(s);
-    return slen > maxlen ? maxlen : slen;
+    unsigned long slen = 0;
+    while (slen < maxlen && '\0' != s[slen])
+        slen++;
+    return slen;
 }
 
 char* m_strtok_r(char* s, const char* delim, char** save_ptr)
@@ -244,9 +242,9 @@ char* m_strtok_r(char* s, const char* delim, char** save_ptr)
     return s;
 }
 
-char* m_trim(const char* s, const char* cset, int pos)
+char* m_trim(const char* s, int len, const char* cset, int pos)
 {
-    if (! s || ! cset)
+    if (! s || ! cset || len < 0)
         return NULL;
 
     // 查表法
@@ -254,12 +252,11 @@ char* m_trim(const char* s, const char* cset, int pos)
     for (int i = 0; cset[i] != '\0'; i++)
         inset[(uint8_t)cset[i]] = 1;
     
-    int slen = (int)strlen(s);
     int headlen = 0;
     int taillen = 0;
-    for (int i = 0; i < slen && inset[(uint8_t)s[i]]; i++)
+    for (int i = 0; i < len && inset[(uint8_t)s[i]]; i++)
         headlen++;
-    for (int i = slen - 1; i >= 0 && inset[(uint8_t)s[i]]; i--)
+    for (int i = len - 1; i >= 0 && inset[(uint8_t)s[i]]; i--)
         taillen++;
 
     int tsize = 1;
@@ -267,18 +264,18 @@ char* m_trim(const char* s, const char* cset, int pos)
     switch (pos)
     {
     case 0:
-        tsize += slen - headlen;
+        tsize += len - headlen;
         cp_addr += headlen;
         break;
     case 1:
-        tsize += slen - taillen;
+        tsize += len - taillen;
         break;
     default:
-        if (headlen + taillen >= slen)
+        if (headlen + taillen >= len)
             cp_addr = "";
         else
         {
-            tsize += slen - headlen - taillen;
+            tsize += len - headlen - taillen;
             cp_addr += headlen;
         }
         break;
@@ -288,7 +285,7 @@ char* m_trim(const char* s, const char* cset, int pos)
     if (! t)
         return NULL;
     
-    memcpy(t, cp_addr, tsize);
+    memcpy(t, cp_addr, tsize - 1);
     t[tsize - 1] = '\0';
     return t;
 }
