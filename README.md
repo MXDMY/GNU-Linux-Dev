@@ -19,7 +19,7 @@
 ├── kernel/                     # 内核学习代码
 ├── modules/                    # 自实现的开源库及其依赖的第三方库（源码 + 测试样例）
 |   ├── m/                      # 公共库
-|   ├── mhttp/                  # http 1.1 实现
+|   ├── mhttp/                  # http/https 1.1 实现，实现暂未审核
 |   └── third_party/            # 第三方开源库
 |       ├── cJSON-1.7.19/
 |       ├── mbedtls-4.2.0/
