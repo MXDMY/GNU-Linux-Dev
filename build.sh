@@ -10,7 +10,10 @@ fi
 printf "Execution options: %s\n" "$1"
 case "$1" in
     "driver")
-        printf "No executable projects available\n"
+        cd ./driver || exit 1
+        make
+        mv -- ./*.ko ../build/
+        make clean
         ;;
     "kernel")
         printf "No executable projects available\n"
