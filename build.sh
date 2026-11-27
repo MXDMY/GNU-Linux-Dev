@@ -14,6 +14,14 @@ case "$1" in
         make
         mv -- ./*.ko ../build/
         make clean
+        # 用于 PC 的 GNU/Linux 可能会需要密钥签名
+        # openssl req -new -x509 -newkey rsa:2048 -keyout MOK.priv -outform DER -out MOK.der -nodes -days 36500 -subj "/CN=My Own Key/"
+        # sudo mokutil --import MOK.der
+        # Reboot --> 蓝色 MOK Manager 界面 --> Enroll MOK
+        if [ -f "../tmp/MOK.der" ] && [ -f "../tmp/MOK.priv" ]; then
+            cd ../tmp || exit 1
+            /usr/src/linux-headers-"$(uname -r)"/scripts/sign-file sha256 MOK.priv MOK.der ../build/*.ko
+        fi
         ;;
     "kernel")
         printf "No executable projects available\n"
